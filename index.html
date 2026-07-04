@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threads Analytics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #0a0a0b; color: #f4f4f5; min-height: 100vh; }
+
+/* Header */
+.header {
+  background: #161718;
+  border-bottom: 1px solid #2a2a2a;
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header h1 span { background: #246dff; color: #fff; font-size: 11px; padding: 3px 8px; border-radius: 6px; font-weight: 600; }
+.header-right { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #9ea2a8; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.status-dot.online { background: #23a64a; }
+.status-dot.offline { background: #e3231d; }
+
+/* Input Section */
+.input-section {
+  padding: 24px 32px;
+  background: #0f0f0f;
+  border-bottom: 1px solid #2a2a2a;
+}
+.input-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.input-row label { font-size: 13px; font-weight: 600; color: #bfc1c5; display: block; margin-bottom: 6px; }
+.input-row input {
+  padding: 10px 14px; border-radius: 8px; border: 1px solid #333538; background: #161718;
+  color: #f4f4f5; font-size: 14px; width: 420px; max-width: 100%; font-family: 'Inter', sans-serif;
+}
+.input-row input:focus { outline: none; border-color: #246dff; }
+.btn {
+  padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .12s; font-family: 'Inter', sans-serif;
+}
+.btn-primary { background: #246dff; color: #fff; }
+.btn-primary:hover { background: #4788ff; }
+.btn-primary:disabled { background: #4f5257; cursor: not-allowed; }
+.btn-secondary { background: #2a2a2a; color: #f4f4f5; border: 1px solid #333538; }
+.btn-secondary:hover { background: #333538; }
+.sample-link { font-size: 12px; color: #6b9fff; cursor: pointer; margin-top: 4px; display: inline-block; }
+.sample-link:hover { text-decoration: underline; }
+.error-msg { color: #ff7157; font-size: 13px; margin-top: 8px; display: none; }
+.loading { display: none; align-items: center; gap: 8px; font-size: 13px; color: #9ea2a8; margin-top: 8px; }
+.spinner { width: 16px; height: 16px; border: 2px solid #333538; border-top-color: #246dff; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Stats Bar */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px;
+  background: #2a2a2a; margin: 0 32px; border-radius: 12px; overflow: hidden; margin-top: 24px;
+}
+.stat-card { background: #0f0f0f; padding: 20px; text-align: center; }
+.stat-card .num { font-size: 28px; font-weight: 800; color: #f4f4f5; }
+.stat-card .label { font-size: 12px; color: #6d7178; margin-top: 4px; text-transform: uppercase; letter-spacing: .5px; }
+
+/* Charts Grid */
+.charts-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px 32px;
+}
+.chart-card {
+  background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 12px; padding: 20px;
+}
+.chart-card.full { grid-column: 1 / -1; }
+.chart-card h3 { font-size: 14px; font-weight: 600; color: #bfc1c5; margin-bottom: 16px; }
+.chart-card canvas { max-height: 280px; }
+
+/* Top Posts Table */
+.top-posts { padding: 0 32px 32px; }
+.top-posts h3 { font-size: 14px; font-weight: 600; color: #bfc1c5; margin-bottom: 12px; }
+.posts-table {
+  width: 100%; border-collapse: collapse; background: #0f0f0f; border: 1px solid #2a2a2a;
+  border-radius: 12px; overflow: hidden; font-size: 13px;
+}
+.posts-table th { text-align: left; padding: 12px 16px; background: #161718; color: #6d7178; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+.posts-table td { padding: 12px 16px; border-top: 1px solid #1f2123; color: #bfc1c5; }
+.posts-table tr:hover td { background: #161718; }
+.posts-table .post-text { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.posts-table .post-link { color: #6b9fff; text-decoration: none; }
+.posts-table .post-link:hover { text-decoration: underline; }
+
+/* Media Gallery */
+.gallery { padding: 0 32px 40px; }
+.gallery h3 { font-size: 14px; font-weight: 600; color: #bfc1c5; margin-bottom: 12px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.gallery-grid img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #2a2a2a; }
+
+/* No Data */
+.no-data { text-align: center; padding: 60px 32px; color: #6d7178; }
+.no-data h2 { font-size: 20px; margin-bottom: 8px; color: #bfc1c5; }
+.no-data p { font-size: 14px; max-width: 400px; margin: 0 auto; line-height: 1.6; }
+
+/* Profile Card */
+.profile-card {
+  background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 12px;
+  margin: 24px 32px 0; padding: 20px; display: flex; align-items: center; gap: 16px;
+}
+.profile-card .avatar { width: 48px; height: 48px; border-radius: 50%; background: #246dff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.profile-card .info { flex: 1; }
+.profile-card .info .name { font-size: 16px; font-weight: 700; }
+.profile-card .info .username { font-size: 13px; color: #6d7178; }
+.profile-card .info .bio { font-size: 13px; color: #bfc1c5; margin-top: 4px; }
+.profile-card .followers { font-size: 13px; color: #9ea2a8; white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .charts-grid { grid-template-columns: 1fr; padding: 16px; }
+  .stats-bar { margin: 16px; }
+  .input-section { padding: 16px; }
+  .header { padding: 16px; }
+  .input-row input { width: 100%; }
+  .top-posts, .gallery { padding: 16px; }
+  .profile-card { margin: 16px 16px 0; flex-wrap: wrap; }
+  .posts-table { font-size: 12px; }
+  .posts-table .post-text { max-width: 200px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧵 Threads Analytics <span>DASHBOARD</span></h1>
+  <div class="header-right">
+    <span class="status-dot offline" id="statusDot"></span>
+    <span id="statusText">No data loaded</span>
+  </div>
+</div>
+
+<div class="input-section">
+  <div class="input-row">
+    <div style="flex:1;min-width:200px">
+      <label for="datasetUrl">Apify Dataset URL or ID</label>
+      <input type="text" id="datasetUrl" placeholder="https://api.apify.com/v2/datasets/abc123/items or just abc123" value="">
+      <div class="sample-link" onclick="loadSample()">📄 Load sample data instead</div>
+    </div>
+    <button class="btn btn-primary" id="loadBtn" onclick="loadData()">Load Dashboard</button>
+  </div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span>Loading data...</span>
+  </div>
+</div>
+
+<div id="dashboardContent" style="display:none">
+
+<div class="profile-card" id="profileCard" style="display:none">
+  <div class="avatar" id="profileAvatar">?</div>
+  <div class="info">
+    <div class="name" id="profileName">—</div>
+    <div class="username" id="profileUsername">@—</div>
+    <div class="bio" id="profileBio"></div>
+  </div>
+  <div class="followers" id="profileFollowers"></div>
+</div>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card"><div class="num" id="statPosts">0</div><div class="label">Posts Scraped</div></div>
+  <div class="stat-card"><div class="num" id="statLikes">0</div><div class="label">Total Likes</div></div>
+  <div class="stat-card"><div class="num" id="statReplies">0</div><div class="label">Total Replies</div></div>
+  <div class="stat-card"><div class="num" id="statReposts">0</div><div class="label">Total Reposts</div></div>
+  <div class="stat-card"><div class="num" id="statAvgEng">0</div><div class="label">Avg Eng/Post</div></div>
+  <div class="stat-card"><div class="num" id="statMedia">0</div><div class="label">With Media</div></div>
+</div>
+
+<div class="charts-grid">
+  <div class="chart-card full"><h3>📈 Engagement Over Time</h3><canvas id="chartTimeline"></canvas></div>
+  <div class="chart-card"><h3>❤️ Engagement Breakdown</h3><canvas id="chartBreakdown"></canvas></div>
+  <div class="chart-card"><h3>📊 Posting Frequency by Day</h3><canvas id="chartDays"></canvas></div>
+  <div class="chart-card"><h3>🔥 Top Engaged Posts</h3><canvas id="chartTopPosts"></canvas></div>
+  <div class="chart-card"><h3>📏 Engagement Distribution</h3><canvas id="chartDist"></canvas></div>
+</div>
+
+<div class="top-posts" id="topPostsSection">
+  <h3>📋 All Posts</h3>
+  <div style="overflow-x:auto">
+    <table class="posts-table" id="postsTable">
+      <thead><tr><th>Date</th><th>Text</th><th>❤️</th><th>💬</th><th>🔄</th><th>Media</th><th>Link</th></tr></thead>
+      <tbody id="postsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="gallery" id="gallerySection">
+  <h3>🖼️ Media Gallery</h3>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</div>
+
+</div>
+
+<div class="no-data" id="noData">
+  <h2>🧵 Enter a dataset URL to get started</h2>
+  <p>Run the Threads Scraper on Apify, then paste the Dataset ID or API URL here to see your analytics.</p>
+</div>
+
+<script>
+const CHARTS = {};
+
+async function loadData() {
+  const input = document.getElementById('datasetUrl').value.trim();
+  const errEl = document.getElementById('errorMsg');
+  const loading = document.getElementById('loading');
+  const loadBtn = document.getElementById('loadBtn');
+
+  errEl.style.display = 'none';
+  loading.style.display = 'flex';
+  loadBtn.disabled = true;
+
+  try {
+    let url = input;
+    if (!url.startsWith('http')) {
+      url = `https://api.apify.com/v2/datasets/${url}/items?format=json&limit=1000`;
+    }
+    if (!url.includes('format=')) {
+      url += (url.includes('?') ? '&' : '?') + 'format=json&limit=1000';
+    }
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error('No data found');
+
+    renderDashboard(data);
+  } catch (e) {
+    errEl.textContent = `❌ ${e.message}`;
+    errEl.style.display = 'block';
+    document.getElementById('dashboardContent').style.display = 'none';
+    document.getElementById('noData').style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+    loadBtn.disabled = false;
+  }
+}
+
+function renderDashboard(data) {
+  // Separate profile meta from posts
+  const posts = data.filter(d => d.type === 'post');
+  const profile = data.find(d => d.type === 'profile-meta');
+  const profileName = posts.length > 0 ? posts[0].authorUsername || posts[0].profile : '';
+
+  // Stats
+  const totalLikes = posts.reduce((s, p) => s + (p.likeCount || 0), 0);
+  const totalReplies = posts.reduce((s, p) => s + (p.replyCount || 0), 0);
+  const totalReposts = posts.reduce((s, p) => s + (p.repostCount || 0), 0);
+  const withMedia = posts.filter(p => (p.imageUrls && p.imageUrls.length > 0) || (p.videoUrls && p.videoUrls.length > 0)).length;
+  const avgEng = posts.length > 0 ? Math.round((totalLikes + totalReplies + totalReposts) / posts.length) : 0;
+
+  document.getElementById('statPosts').textContent = posts.length;
+  document.getElementById('statLikes').textContent = formatNum(totalLikes);
+  document.getElementById('statReplies').textContent = formatNum(totalReplies);
+  document.getElementById('statReposts').textContent = formatNum(totalReposts);
+  document.getElementById('statAvgEng').textContent = formatNum(avgEng);
+  document.getElementById('statMedia').textContent = withMedia;
+
+  document.getElementById('statusText').textContent = `${posts.length} posts loaded`;
+  document.getElementById('statusDot').className = 'status-dot online';
+
+  // Profile card
+  const pc = document.getElementById('profileCard');
+  if (profile || profileName) {
+    pc.style.display = 'flex';
+    const displayName = profile?.displayName || '';
+    const bio = profile?.bio || '';
+    const followers = profile?.followerCount;
+
+    document.getElementById('profileAvatar').textContent = (displayName || profileName)[0].toUpperCase();
+    document.getElementById('profileName').textContent = displayName || profileName;
+    document.getElementById('profileUsername').textContent = `@${profileName}`;
+    document.getElementById('profileBio').textContent = bio || '';
+
+    if (followers) {
+      document.getElementById('profileFollowers').textContent = `👥 ${formatNum(followers)} followers`;
+    } else {
+      document.getElementById('profileFollowers').textContent = '';
+    }
+  } else {
+    pc.style.display = 'none';
+  }
+
+  // Sort posts by date
+  const sorted = [...posts].sort((a, b) => {
+    const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return da - db;
+  });
+
+  // Build timeline data
+  const timelineMap = new Map();
+  sorted.forEach(p => {
+    const d = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'Unknown';
+    const existing = timelineMap.get(d) || { likes: 0, replies: 0, reposts: 0, count: 0 };
+    existing.likes += p.likeCount || 0;
+    existing.replies += p.replyCount || 0;
+    existing.reposts += p.repostCount || 0;
+    existing.count += 1;
+    timelineMap.set(d, existing);
+  });
+  const timelineDates = [...timelineMap.keys()];
+  const timelineLikes = timelineDates.map(d => timelineMap.get(d).likes);
+  const timelineReplies = timelineDates.map(d => timelineMap.get(d).replies);
+  const timelineReposts = timelineDates.map(d => timelineMap.get(d).reposts);
+
+  // Day of week
+  const dayCount = [0,0,0,0,0,0,0];
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  sorted.forEach(p => {
+    if (p.createdAt) {
+      const d = new Date(p.createdAt);
+      if (!isNaN(d.getTime())) dayCount[d.getDay()]++;
+    }
+  });
+
+  // Top posts by total engagement
+  const topPosts = [...posts].sort((a, b) => ((b.likeCount||0)+(b.replyCount||0)+(b.repostCount||0)) - ((a.likeCount||0)+(a.replyCount||0)+(a.repostCount||0))).slice(0, 10);
+
+  // Destroy old charts
+  Object.values(CHARTS).forEach(c => c.destroy());
+  Object.keys(CHARTS).forEach(k => delete CHARTS[k]);
+
+  // 1. Engagement Timeline
+  CHARTS.timeline = new Chart(document.getElementById('chartTimeline'), {
+    type: 'line',
+    data: {
+      labels: timelineDates,
+      datasets: [
+        { label: '❤️ Likes', data: timelineLikes, borderColor: '#ef6045', backgroundColor: 'rgba(239,96,69,.08)', fill: true, tension: .3 },
+        { label: '💬 Replies', data: timelineReplies, borderColor: '#528fff', backgroundColor: 'rgba(82,143,255,.08)', fill: true, tension: .3 },
+        { label: '🔄 Reposts', data: timelineReposts, borderColor: '#23a64a', backgroundColor: 'rgba(35,166,74,.08)', fill: true, tension: .3 }
+      ]
+    },
+    options: chartOpts({ scales: { y: { beginAtZero: true } } })
+  });
+
+  // 2. Engagement Breakdown (aggregate)
+  CHARTS.breakdown = new Chart(document.getElementById('chartBreakdown'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Likes', 'Replies', 'Reposts'],
+      datasets: [{
+        data: [totalLikes, totalReplies, totalReposts],
+        backgroundColor: ['#ef6045', '#528fff', '#23a64a'],
+        borderColor: '#0f0f0f',
+        borderWidth: 3
+      }]
+    },
+    options: chartOpts({
+      cutout: '65%',
+      plugins: { legend: { position: 'bottom', labels: { color: '#bfc1c5', padding: 16, font: { size: 12 } } } }
+    })
+  });
+
+  // 3. Posting Day
+  CHARTS.days = new Chart(document.getElementById('chartDays'), {
+    type: 'bar',
+    data: {
+      labels: dayNames,
+      datasets: [{ label: 'Posts', data: dayCount, backgroundColor: '#528fff', borderRadius: 4 }]
+    },
+    options: chartOpts({ scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } })
+  });
+
+  // 4. Top Posts
+  CHARTS.topPosts = new Chart(document.getElementById('chartTopPosts'), {
+    type: 'bar',
+    data: {
+      labels: topPosts.map((p,i) => `#${i+1}`),
+      datasets: [
+        { label: 'Likes', data: topPosts.map(p => p.likeCount||0), backgroundColor: '#ef6045', borderRadius: 3 },
+        { label: 'Replies', data: topPosts.map(p => p.replyCount||0), backgroundColor: '#528fff', borderRadius: 3 },
+        { label: 'Reposts', data: topPosts.map(p => p.repostCount||0), backgroundColor: '#23a64a', borderRadius: 3 }
+      ]
+    },
+    options: chartOpts({
+      indexAxis: 'y',
+      scales: { x: { beginAtZero: true } },
+      plugins: { tooltip: { callbacks: { afterLabel: function(ctx) { const p = topPosts[ctx.dataIndex]; return p.text ? p.text.substring(0, 100) : ''; } } } }
+    })
+  });
+
+  // 5. Engagement Distribution
+  const dist = [0,0,0,0,0];
+  posts.forEach(p => {
+    const e = (p.likeCount||0) + (p.replyCount||0) + (p.repostCount||0);
+    if (e === 0) dist[0]++;
+    else if (e <= 100) dist[1]++;
+    else if (e <= 1000) dist[2]++;
+    else if (e <= 10000) dist[3]++;
+    else dist[4]++;
+  });
+  CHARTS.dist = new Chart(document.getElementById('chartDist'), {
+    type: 'bar',
+    data: {
+      labels: ['0', '1-100', '101-1K', '1K-10K', '10K+'],
+      datasets: [{ label: 'Posts', data: dist, backgroundColor: '#6b9fff', borderRadius: 4 }]
+    },
+    options: chartOpts({ scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } })
+  });
+
+  // Posts Table
+  const tbody = document.getElementById('postsBody');
+  tbody.innerHTML = '';
+  sorted.reverse().forEach(p => {
+    const tr = document.createElement('tr');
+    const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—';
+    const text = (p.text || '').substring(0, 120);
+    const hasMedia = (p.imageUrls && p.imageUrls.length > 0) || (p.videoUrls && p.videoUrls.length > 0) ? '📷' : '—';
+    const link = p.url ? `<a href="${p.url}" target="_blank" class="post-link">🔗</a>` : '—';
+    tr.innerHTML = `<td>${date}</td><td class="post-text" title="${escHtml(p.text || '')}">${escHtml(text)}</td><td>${formatNum(p.likeCount||0)}</td><td>${formatNum(p.replyCount||0)}</td><td>${formatNum(p.repostCount||0)}</td><td>${hasMedia}</td><td>${link}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Gallery
+  const gallery = document.getElementById('galleryGrid');
+  gallery.innerHTML = '';
+  let mediaCount = 0;
+  posts.forEach(p => {
+    if (p.imageUrls && p.imageUrls.length > 0) {
+      p.imageUrls.forEach(url => {
+        if (mediaCount < 50) {
+          const img = document.createElement('img');
+          img.src = url;
+          img.loading = 'lazy';
+          img.onerror = function() { this.style.display = 'none'; };
+          gallery.appendChild(img);
+          mediaCount++;
+        }
+      });
+    }
+  });
+
+  if (mediaCount === 0) {
+    document.getElementById('gallerySection').style.display = 'none';
+  } else {
+    document.getElementById('gallerySection').style.display = 'block';
+  }
+
+  document.getElementById('dashboardContent').style.display = 'block';
+  document.getElementById('noData').style.display = 'none';
+}
+
+function chartOpts(extra = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: true,
+    color: '#9ea2a8',
+    borderColor: '#2a2a2a',
+    plugins: {
+      legend: { labels: { color: '#bfc1c5', padding: 12, font: { size: 11 } } }
+    },
+    scales: {
+      x: { grid: { color: '#1f2123' }, ticks: { color: '#6d7178', font: { size: 11 } } },
+      y: { grid: { color: '#1f2123' }, ticks: { color: '#6d7178', font: { size: 11 } } }
+    },
+    ...extra
+  };
+}
+
+function formatNum(n) {
+  if (n >= 1_000_000) return (n/1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n/1_000).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadSample() {
+  document.getElementById('datasetUrl').value = 'sample';
+  document.getElementById('loadBtn').disabled = true;
+  const loading = document.getElementById('loading');
+  loading.style.display = 'flex';
+
+  try {
+    // Generate realistic sample data
+    const sampleData = generateSampleData();
+    renderDashboard(sampleData);
+  } catch(e) {
+    document.getElementById('errorMsg').textContent = `❌ ${e.message}`;
+    document.getElementById('errorMsg').style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+    document.getElementById('loadBtn').disabled = false;
+  }
+}
+
+function generateSampleData() {
+  const data = [];
+  const usernames = ['zuck', 'nike', 'nasa'];
+  const texts = [
+    "Just launched something incredible! The new AI features are game changing. Can't wait for everyone to try them out 🚀",
+    "Big news today! We're expanding to 20 new countries. Thanks to our amazing team for making this happen.",
+    "Had an amazing conversation about the future of technology. The next decade is going to be wild.",
+    "Throwback to our first product launch. Look how far we've come! So grateful for our community.",
+    "New research shows that renewable energy is now cheaper than fossil fuels. The future is green 🌱",
+    "Excited to announce our partnership. Together we can make a real difference.",
+    "Behind the scenes of our latest project. So much work goes into every detail.",
+    "Today we hit 1 million users! Thank you all for your support 🙏",
+    "The team just shipped a massive update. Check out what's new in our latest release.",
+    "Reflecting on an incredible year. So much to be grateful for.",
+    "New feature drop! You asked, we delivered. Try it out and let us know what you think.",
+    "Proud moment for the team. Our work was featured in a major publication today.",
+  ];
+
+  data.push({
+    type: 'profile-meta',
+    profile: 'zuck',
+    displayName: 'Mark Zuckerberg',
+    bio: 'Building the future of connection and AI.',
+    followerCount: 5600000,
+  });
+
+  const startDate = new Date('2026-04-01');
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    const likes = Math.floor(Math.random() * 20000) + 100;
+    const replies = Math.floor(Math.random() * 5000) + 20;
+    const reposts = Math.floor(Math.random() * 3000) + 10;
+    const hasMedia = Math.random() > 0.5;
+    const images = hasMedia ? [`https://picsum.photos/seed/${i}/400/400`] : [];
+
+    data.push({
+      type: 'post',
+      profile: 'zuck',
+      authorUsername: 'zuck',
+      id: `sample_${i}`,
+      url: `https://www.threads.net/@zuck/post/sample_${i}`,
+      text: texts[i % texts.length],
+      createdAt: date.toISOString(),
+      likeCount: likes,
+      replyCount: replies,
+      repostCount: reposts,
+      imageUrls: images,
+      videoUrls: [],
+      scrapedAt: new Date().toISOString(),
+      profileDisplayName: 'Mark Zuckerberg',
+      profileFollowerCount: 5600000,
+      profileBio: 'Building the future of connection and AI.',
+    });
+  }
+
+  return data;
+}
+
+// Allow Enter key to submit
+document.getElementById('datasetUrl').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadData();
+});
+</script>
+</body>
+</html>
